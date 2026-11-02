@@ -22,6 +22,8 @@ _FILES = {
     "shadow": "shadow_rules.yaml",
     "holidays": "holidays.yaml",
     "decision": "decision.yaml",
+    "llm": "llm.yaml",
+    "news": "news_sources.yaml",
 }
 
 

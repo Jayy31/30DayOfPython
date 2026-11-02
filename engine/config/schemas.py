@@ -132,6 +132,8 @@ class AppConfig(_Strict):
     shadow: ShadowRulesConfig
     holidays: dict[int, list[str]]
     decision: "DecisionConfig"
+    llm: "LlmConfig"
+    news: "NewsConfig"
 
     @model_validator(mode="after")
     def _instruments_cover_indices(self) -> AppConfig:
@@ -223,6 +225,52 @@ class DecisionConfig(_Strict):
         if set(self.regime.families) != {"trend", "range", "unclear"}:
             raise ValueError("regime.families needs trend, range and unclear")
         return self
+
+
+# --------------------------------------------------------------------- llm
+class LlmTaskConfig(_Strict):
+    tier: Literal["fast", "smart"]
+    max_tokens: int = Field(gt=0, le=64000)
+    effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
+
+
+class ModelPricing(_Strict):
+    input: float = Field(ge=0)
+    output: float = Field(ge=0)
+    cache_read: float = Field(ge=0)
+    cache_write: float = Field(ge=0)
+    long_context_threshold: int | None = None
+    long_context_multiplier: float = 1.0
+
+
+class LlmConfig(_Strict):
+    max_prompt_tokens: int = Field(gt=0, le=100000)
+    tasks: dict[str, LlmTaskConfig]
+    pricing: dict[str, ModelPricing]
+
+
+# -------------------------------------------------------------------- news
+class NewsSourceConfig(_Strict):
+    id: str
+    kind: Literal["rss", "gdelt", "finnhub"]
+    url: str = ""
+    query: str = ""
+    official: bool = False
+    enabled: bool = True
+
+
+class NewsConfig(_Strict):
+    poll_market_seconds: int = Field(gt=0)
+    poll_overnight_seconds: int = Field(gt=0)
+    dedupe_similarity: float = Field(gt=0, le=1)
+    dedupe_window_minutes: int = Field(gt=0)
+    spike_min_sources: int = Field(ge=2)
+    spike_window_minutes: int = Field(gt=0)
+    llm_batch_size: int = Field(gt=0, le=50)
+    confirm_moves_pct: dict[str, float]
+    topics: dict[str, list[str]]
+    index_keywords: dict[str, list[str]]
+    sources: list[NewsSourceConfig]
 
 
 AppConfig.model_rebuild()
