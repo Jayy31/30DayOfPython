@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from datetime import date, datetime, time
 
 from scipy.optimize import brentq
-from scipy.stats import norm
 
 from engine.core.models import OptionType
 from engine.core.timeutils import IST, to_ist
@@ -20,6 +19,18 @@ RISK_FREE = 0.065
 EXPIRY_CLOSE = time(15, 30)
 YEAR_SECONDS = 365.0 * 24 * 3600
 MIN_T = 1.0 / (365 * 24 * 60)  # one minute; avoids blow-ups at expiry
+_SQRT2 = math.sqrt(2.0)
+_INV_SQRT_2PI = 1.0 / math.sqrt(2.0 * math.pi)
+
+
+class norm:  # noqa: N801 - tiny, fast stand-in for scipy.stats.norm (cdf/pdf only)
+    @staticmethod
+    def cdf(x: float) -> float:
+        return 0.5 * (1.0 + math.erf(x / _SQRT2))
+
+    @staticmethod
+    def pdf(x: float) -> float:
+        return _INV_SQRT_2PI * math.exp(-0.5 * x * x)
 
 
 def time_to_expiry(now: datetime, expiry: date) -> float:

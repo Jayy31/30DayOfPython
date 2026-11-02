@@ -15,7 +15,8 @@ Fully automated, intraday-only **paper-trading** system for Nifty and Sensex ind
 | 4 | Analytics: Greeks/IV, levels, VWAP, opening range, volume profile, confluence, failed breaks, OI map, GEX + flip, straddle, opening type, order flow, futures OI, breadth | done |
 | 5 | Decision layer: regime, bias, triggers, strike selection, prior probability model (labelled uncalibrated), setup plug-ins, confluence score, reason log | done |
 | 6 | News + LLM: RSS/GDELT/Finnhub fetchers, dedupe, relevance, LLM scoring (JSON schema, retry, rule fallback), spike detection, market confirmation, news bias, token/cost ledger + budget, mock LLM | done |
-| 7–11 | Scheduler + reports + alerts, shadow rules + metrics, dashboard, real integrations | pending |
+| 7 | Live engine + market state, scheduler (all daily jobs, idempotent, holiday-aware), reports (LLM narrative + template fallback), Telegram alerts, Postgres store, feed watchdog, `engine.main replay` | done |
+| 8–11 | Shadow rules + metrics, dashboard, real integrations | pending |
 
 ## Quick start (replay mode, no credentials needed)
 
@@ -25,7 +26,9 @@ cp .env.example .env
 docker compose -f docker/docker-compose.yml up -d   # local Postgres
 alembic upgrade head
 pytest
-python -m engine.main
+python -m engine.main                      # validate config
+python -m engine.main replay 2026-11-03    # run one synthetic day end to end (premarket -> live -> postmarket)
+python -m engine.main run                  # start the scheduler with all daily jobs
 ```
 
 The engine refuses to start if any file in `config/` is invalid.
@@ -42,6 +45,12 @@ engine/
   decision/      decision engine, trade plan, reason log
   llm/           provider wrapper (Anthropic + mock), usage/cost ledger, budget guard
   news/          fetchers, dedupe, relevance, scoring, spikes, confirmation, pipeline
+  state/         per-index live market state -> MarketContext
+  runtime/       live engine (ticks -> decision -> paper broker), feed watchdog
+  scheduler/     daily jobs (IST, holiday-aware, idempotent)
+  reports/       premarket / post-market / weekly / monthly
+  alerts/        Telegram + in-memory notifier
+  store/         persistence (memory + Postgres)
   db/            SQLAlchemy models + session (migrations in migrations/)
   broker_paper/  charges, fills, lot sizing, exit ladder, swing trail, paper broker
   risk/          locked trading rules (windows, daily limits, 2nd-trade thresholds)

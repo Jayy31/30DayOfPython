@@ -46,6 +46,12 @@ class CumulativeDelta:
     def window_delta(self) -> int:
         return sum(s for _, s, _ in self._recent)
 
+    @property
+    def window_normalized(self) -> float:
+        """Window delta / total traded volume in the window, in [-1, 1]."""
+        total = sum(abs(s) for _, s, _ in self._recent)
+        return self.window_delta / total if total else 0.0
+
     def window_prices(self) -> list[float]:
         return [p for _, _, p in self._recent]
 
