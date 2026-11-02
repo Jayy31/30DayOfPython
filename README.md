@@ -17,7 +17,7 @@ Fully automated, intraday-only **paper-trading** system for Nifty and Sensex ind
 | 6 | News + LLM: RSS/GDELT/Finnhub fetchers, dedupe, relevance, LLM scoring (JSON schema, retry, rule fallback), spike detection, market confirmation, news bias, token/cost ledger + budget, mock LLM | done |
 | 7 | Live engine + market state, scheduler (all daily jobs, idempotent, holiday-aware), reports (LLM narrative + template fallback), Telegram alerts, Postgres store, feed watchdog, `engine.main replay` | done |
 | 8 | Shadow-rule simulator (exact re-simulation on recorded quote paths, config-driven rules) + metrics (expectancy, PF, drawdown, streaks, capital curve, breakdowns, LLM cost) in weekly/monthly reports | done |
-| 9–11 | Dashboard, dashboard, real integrations | pending |
+| 9–11 | Dashboard, real integrations, validation run | pending |
 
 ## Quick start (replay mode, no credentials needed)
 
