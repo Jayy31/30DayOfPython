@@ -40,8 +40,8 @@ def price(s: float, k: float, t: float, iv: float, ot: OptionType, r: float = RI
     d1, d2 = _d1d2(s, k, t, iv, r)
     disc = math.exp(-r * t)
     if ot is OptionType.CE:
-        return s * norm.cdf(d1) - k * disc * norm.cdf(d2)
-    return k * disc * norm.cdf(-d2) - s * norm.cdf(-d1)
+        return float(s * norm.cdf(d1) - k * disc * norm.cdf(d2))
+    return float(k * disc * norm.cdf(-d2) - s * norm.cdf(-d1))
 
 
 @dataclass(frozen=True)
@@ -67,7 +67,7 @@ def greeks(s: float, k: float, t: float, iv: float, ot: OptionType, r: float = R
     else:
         delta = norm.cdf(d1) - 1
         theta = common + r * k * disc * norm.cdf(-d2)
-    return Greeks(iv=iv, delta=delta, gamma=gamma, theta=theta / 365, vega=vega)
+    return Greeks(iv=float(iv), delta=float(delta), gamma=float(gamma), theta=float(theta) / 365, vega=float(vega))
 
 
 def implied_vol(px: float, s: float, k: float, t: float, ot: OptionType, r: float = RISK_FREE) -> float | None:
@@ -79,7 +79,7 @@ def implied_vol(px: float, s: float, k: float, t: float, ot: OptionType, r: floa
     if not (lower < px < upper):
         return None
     try:
-        return brentq(lambda v: price(s, k, t, v, ot, r) - px, 1e-4, 5.0, xtol=1e-7)
+        return float(brentq(lambda v: price(s, k, t, v, ot, r) - px, 1e-4, 5.0, xtol=1e-7))
     except ValueError:
         return None
 

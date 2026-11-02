@@ -13,7 +13,8 @@ Fully automated, intraday-only **paper-trading** system for Nifty and Sensex ind
 | 3 | Paper broker + risk engine: fills, slippage, charges, lot sizing, SL/target/trail ladder, windows, daily limits | done |
 | 2 | Data interfaces + mocks: MarketDataProvider, synthetic market, replay provider, feed-gap monitor, Parquet tick store | done |
 | 4 | Analytics: Greeks/IV, levels, VWAP, opening range, volume profile, confluence, failed breaks, OI map, GEX + flip, straddle, opening type, order flow, futures OI, breadth | done |
-| 5–11 | Decision layer, news/LLM, scheduler, shadow, dashboard, real integrations | pending |
+| 5 | Decision layer: regime, bias, triggers, strike selection, prior probability model (labelled uncalibrated), setup plug-ins, confluence score, reason log | done |
+| 6–11 | News/LLM, scheduler, shadow, dashboard, real integrations | pending |
 
 ## Quick start (replay mode, no credentials needed)
 
@@ -36,10 +37,12 @@ engine/
   core/          IST time utils, trading calendar, JSON logs, domain models
   data/          MarketDataProvider interface, mock replay + synthetic market, feed monitor, Parquet ticks
   analytics/     Greeks/IV, GEX, OI map, straddle, opening type, levels, order flow, breadth
+  analytics/setups/  named setups (plug-in registry)
+  decision/      decision engine, trade plan, reason log
   db/            SQLAlchemy models + session (migrations in migrations/)
   broker_paper/  charges, fills, lot sizing, exit ladder, swing trail, paper broker
   risk/          locked trading rules (windows, daily limits, 2nd-trade thresholds)
-config/          rules.yaml, charges.yaml, instruments.yaml, shadow_rules.yaml, holidays.yaml
+config/          rules.yaml, decision.yaml, charges.yaml, instruments.yaml, shadow_rules.yaml, holidays.yaml
 ```
 
 ## Locked exit ladder (R = SL distance = sl_pct of entry premium)

@@ -131,6 +131,7 @@ class AppConfig(_Strict):
     instruments: dict[IndexName, InstrumentConfig]
     shadow: ShadowRulesConfig
     holidays: dict[int, list[str]]
+    decision: "DecisionConfig"
 
     @model_validator(mode="after")
     def _instruments_cover_indices(self) -> AppConfig:
@@ -141,3 +142,87 @@ class AppConfig(_Strict):
             if self.instruments[idx].exchange not in self.charges.exchange_txn_pct:
                 raise ValueError(f"charges.yaml has no exchange_txn_pct for {self.instruments[idx].exchange}")
         return self
+
+
+# ---------------------------------------------------------------- decision
+class RegimeConfig(_Strict):
+    trend_weights: dict[str, float]
+    range_weights: dict[str, float]
+    min_edge: float = Field(gt=0)
+    families: dict[Literal["trend", "range", "unclear"], list[str]]
+
+
+class BiasConfig(_Strict):
+    weights: dict[str, float]
+    sensex_futures_proxy_weight: float = Field(ge=0, le=1)
+    neutral_band: float = Field(ge=0, lt=1)
+    max_counter_bias: float = Field(ge=0, le=1)
+
+
+class LocationConfig(_Strict):
+    zone_tolerance_pct: float = Field(gt=0)
+    min_sources: int = Field(ge=2)
+    max_distance_pct: float = Field(gt=0)
+
+
+class TriggerConfig(_Strict):
+    min_strength: float = Field(ge=0, le=1)
+
+
+class StrikeConfig(_Strict):
+    max_spread_pct: float = Field(gt=0)
+    min_volume: int = Field(ge=0)
+    min_oi: int = Field(ge=0)
+    max_iv_jump_pct: float = Field(gt=0)
+    hold_minutes: int = Field(gt=0)
+    min_gain_to_theta: float = Field(gt=0)
+    expiry_day_switch: time
+
+    @field_validator("expiry_day_switch", mode="before")
+    @classmethod
+    def _t(cls, v: Any) -> time:
+        return _parse_hhmm(v)
+
+
+class SetupsConfig(_Strict):
+    enabled: list[str] = Field(min_length=1)
+
+
+class PriorsConfig(_Strict):
+    version: str
+    base: dict[str, float]
+    weights: dict[str, float]
+    clip: tuple[float, float]
+    calibrated_after_trades: int = Field(ge=1)
+
+    @model_validator(mode="after")
+    def _check(self) -> PriorsConfig:
+        lo, hi = self.clip
+        if not 0 < lo < hi < 1:
+            raise ValueError("priors.clip must satisfy 0 < lo < hi < 1")
+        if any(not 0 < p < 1 for p in self.base.values()):
+            raise ValueError("prior base rates must be in (0, 1)")
+        return self
+
+
+class DecisionConfig(_Strict):
+    regime: RegimeConfig
+    bias: BiasConfig
+    location: LocationConfig
+    trigger: TriggerConfig
+    strike: StrikeConfig
+    setups: SetupsConfig
+    priors: PriorsConfig
+    score_weights: dict[str, float]
+
+    @model_validator(mode="after")
+    def _priors_cover_setups(self) -> DecisionConfig:
+        missing = set(self.setups.enabled) - set(self.priors.base)
+        if missing:
+            raise ValueError(f"priors.base missing setups: {sorted(missing)}")
+        if set(self.regime.families) != {"trend", "range", "unclear"}:
+            raise ValueError("regime.families needs trend, range and unclear")
+        return self
+
+
+AppConfig.model_rebuild()
