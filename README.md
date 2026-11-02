@@ -11,7 +11,8 @@ Fully automated, intraday-only **paper-trading** system for Nifty and Sensex ind
 |---|---|---|
 | 1 | Foundation: config loader + validation, models, JSON logging, IST time, holiday calendar, DB + migrations | done |
 | 3 | Paper broker + risk engine: fills, slippage, charges, lot sizing, SL/target/trail ladder, windows, daily limits | done |
-| 2, 4–11 | Data mocks, analytics, decision, news/LLM, scheduler, shadow, dashboard, real integrations | pending |
+| 2 | Data interfaces + mocks: MarketDataProvider, synthetic market, replay provider, feed-gap monitor, Parquet tick store | done |
+| 4–11 | Analytics, decision, news/LLM, scheduler, shadow, dashboard, real integrations | pending |
 
 ## Quick start (replay mode, no credentials needed)
 
@@ -32,6 +33,7 @@ The engine refuses to start if any file in `config/` is invalid.
 engine/
   config/        settings (env) + YAML schemas + loader
   core/          IST time utils, trading calendar, JSON logs, domain models
+  data/          MarketDataProvider interface, mock replay + synthetic market, feed monitor, Parquet ticks
   db/            SQLAlchemy models + session (migrations in migrations/)
   broker_paper/  charges, fills, lot sizing, exit ladder, swing trail, paper broker
   risk/          locked trading rules (windows, daily limits, 2nd-trade thresholds)
