@@ -192,3 +192,17 @@ async def test_postmarket_job_saves_report(cfg, replayed):
     await JobRunner(app).run(next(j for j in JOBS if j.name == "postmarket"), DAY, force=True)
     rep = app.store.reports[("postmarket", DAY)]
     assert rep.data["summary"]["trades"] == len(app.store.trades)
+
+
+async def test_weekly_job_includes_metrics_and_shadow(cfg):
+    from tests.trade_factory import LOSS, WIN, make_trade
+
+    app = make_app(cfg)
+    for d, no, path in ((date(2026, 11, 2), 1, LOSS), (date(2026, 11, 3), 1, WIN)):
+        app.store.save_trade(make_trade(cfg, d, no, path))
+    status = await JobRunner(app).run(next(j for j in JOBS if j.name == "weekly"), date(2026, 11, 7))
+    assert status == "ok"
+    rep = app.store.reports[("weekly", date(2026, 11, 2))]
+    assert rep.data["metrics"]["trades"] == 2 and rep.data["shadow_rules"]
+    assert "Shadow half_sizing" in rep.body and "too few to judge" in rep.body
+    assert "llm_usage" in rep.data

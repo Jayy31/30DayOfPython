@@ -90,6 +90,7 @@ class Position:
         self.outcome: Outcome | None = None
         self.exit_ts: datetime | None = None
         self.last_quote: OptionQuote | None = None
+        self.path: list[OptionQuote] = []   # every quote seen while open (for shadow re-simulation)
 
         qty = lots * contract.lot_size
         self.legs: list[Leg] = [
@@ -138,6 +139,7 @@ class Position:
         if not self.is_open:
             return []
         self.last_quote = quote
+        self.path.append(quote)
         self.trail.update(quote.ts, quote.ltp)
         out: list[Leg] = []
         bid = quote.bid
@@ -171,6 +173,7 @@ class Position:
         if not self.is_open:
             return []
         self.last_quote = quote
+        self.path.append(quote)
         return [self._sell(quote, self.open_lots, LegReason.SQUARE_OFF)]
 
     # ------------------------------------------------------------- results

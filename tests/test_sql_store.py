@@ -63,3 +63,16 @@ def test_report_upsert_and_job_marks(engine):
     store.mark_job("premarket", DAY)
     assert store.job_done("premarket", DAY)
     store.save_event(at(10, 0), "feed_drop", {"x": 1})
+
+
+def test_shadow_upsert(cfg, engine):
+    from tests.trade_factory import WIN, make_trade
+
+    store = SqlStore(engine)
+    t = make_trade(cfg, DAY, 9, WIN)
+    store.save_trade(t)
+    store.save_shadow("half_sizing", t, True, 100.0, {"lots": 1})
+    store.save_shadow("half_sizing", t, True, 120.0, {"lots": 1})
+    with session_scope(engine) as s:
+        rows = s.scalars(select(m.ShadowResult).where(m.ShadowResult.trade_id == t.position.id)).all()
+        assert len(rows) == 1 and float(rows[0].simulated_pnl) == 120.0

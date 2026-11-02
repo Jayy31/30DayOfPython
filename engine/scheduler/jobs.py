@@ -16,6 +16,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from engine.app import App
 from engine.core.timeutils import IST, now_ist
+from engine.metrics.report_data import period_report_data
 from engine.reports.builder import build_report, trade_summary
 
 log = logging.getLogger(__name__)
@@ -88,9 +89,19 @@ async def fii_evening(app: App, day: date) -> None:
     await _not_configured(app, day, "nse_fii_dii_evening")
 
 
+def _period_data(app: App, start: date, end: date) -> dict:  # type: ignore[type-arg]
+    trades = app.store.trades_between(start, end)
+    before = app.store.trades_between(date.min, start.fromordinal(start.toordinal() - 1))
+    start_capital = app.cfg.rules.capital + sum(t.net_pnl for t in before)
+    data = period_report_data(app.cfg, app.store, trades, start_capital, (start, end), app.llm.ledger if app.llm else None, all_trades=before + trades)
+    data["summary"] = trade_summary(trades)
+    data["capital"] = app.broker.capital
+    return data
+
+
 async def weekly(app: App, day: date) -> None:
     start, end = app.week_bounds(day)
-    rep = await build_report("weekly", start, {"summary": trade_summary(app.store.trades_between(start, end)), "capital": app.broker.capital}, app.llm)
+    rep = await build_report("weekly", start, _period_data(app, start, end), app.llm)
     app.store.save_report(rep)
     await app.notifier.send(rep.body)  # type: ignore[union-attr]
 
@@ -98,7 +109,7 @@ async def weekly(app: App, day: date) -> None:
 async def monthly(app: App, day: date) -> None:
     last_month_end = day.replace(day=1).fromordinal(day.replace(day=1).toordinal() - 1)
     start = last_month_end.replace(day=1)
-    rep = await build_report("monthly", start, {"summary": trade_summary(app.store.trades_between(start, last_month_end)), "capital": app.broker.capital}, app.llm)
+    rep = await build_report("monthly", start, _period_data(app, start, last_month_end), app.llm)
     app.store.save_report(rep)
     await app.notifier.send(rep.body)  # type: ignore[union-attr]
     await _not_configured(app, day, "supabase_backup_export")

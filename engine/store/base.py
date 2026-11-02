@@ -54,6 +54,10 @@ class Store(ABC):
     def save_event(self, ts: datetime, kind: str, detail: dict[str, Any]) -> None: ...
 
     @abstractmethod
+    def save_shadow(self, rule_id: str, rec: TradeRecord, active: bool, simulated_pnl: float, state: dict[str, Any]) -> None:
+        """active = the rule would have changed/blocked this trade."""
+
+    @abstractmethod
     def job_done(self, job: str, day: date) -> bool: ...
 
     @abstractmethod
@@ -67,6 +71,7 @@ class MemoryStore(Store):
         self.reports: dict[tuple[str, date], ReportRecord] = {}
         self.events: list[tuple[datetime, str, dict[str, Any]]] = []
         self.jobs: set[tuple[str, date]] = set()
+        self.shadow: dict[tuple[str, str], tuple[bool, float, dict[str, Any]]] = {}
 
     def save_signals(self, signals: list[SignalRecord]) -> None:
         self.signals.extend(signals)
@@ -82,6 +87,9 @@ class MemoryStore(Store):
 
     def save_event(self, ts: datetime, kind: str, detail: dict[str, Any]) -> None:
         self.events.append((ts, kind, detail))
+
+    def save_shadow(self, rule_id: str, rec: TradeRecord, active: bool, simulated_pnl: float, state: dict[str, Any]) -> None:
+        self.shadow[(rule_id, str(rec.position.id))] = (active, simulated_pnl, state)
 
     def job_done(self, job: str, day: date) -> bool:
         return (job, day) in self.jobs

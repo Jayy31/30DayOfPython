@@ -76,6 +76,7 @@ class LiveEngine:
         self._result: DayResult | None = None
         self._feed_down_alerted = False
         self.recorded: list[Tick] | None = None   # set to [] to keep the day's ticks for Parquet
+        self._closed_today: list[Position] = []   # keep extending their quote path until square-off
 
     # ------------------------------------------------------------ main loop
     async def run_day(self, day: date, instruments: list[Instrument]) -> DayResult:
@@ -107,6 +108,9 @@ class LiveEngine:
         st = self._token_state.get(tick.token)
         if st is not None:
             st.on_tick(tick)
+        for done in self._closed_today:
+            if tick.token == done.contract.symbol and tick.ts.time() <= self.cfg.rules.square_off:
+                done.path.append(tick.to_quote())
         pos = self.broker.position
         if pos is not None and tick.token == pos.contract.symbol:
             self._last_quote = tick.to_quote()
@@ -182,6 +186,7 @@ class LiveEngine:
         )
         rec = TradeRecord(position=pos, day=self._result.day, trade_no=len(self._result.trades) + 1, setup=pos.setup, reason_log=log_, capital_after=self.broker.capital)
         self._result.trades.append(rec)
+        self._closed_today.append(pos)
         self.store.save_trade(rec)
         self._plan = None
         await self.notifier.send(f"EXIT {pos.contract.key} {pos.outcome.value}: net {pos.net_pnl:+.2f} ({pos.r_multiple:+.2f}R). Capital {self.broker.capital:.2f}")

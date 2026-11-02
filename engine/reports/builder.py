@@ -60,6 +60,14 @@ def _template(kind: str, period: date, data: dict[str, Any]) -> ReportText:
         lines.append(f"Trades {s['trades']} (W {s['wins']} / L {s['losses']}), net P&L {s['net_pnl']:+.2f}")
         for it in s["items"]:
             lines.append(f"- #{it['no']} {it['index']} {it['setup']} {it['direction']} {it['strike']}{it['type']} x{it['lots']}: {it['outcome']} {it['net_pnl']:+.2f} ({it['r']:+.2f}R)")
+    if "metrics" in data:
+        mm = data["metrics"]
+        lines.append(f"Win rate {mm['win_rate']:.0%}, expectancy {mm['expectancy']:+.2f}/trade, profit factor {mm['profit_factor']}, max DD {mm['max_drawdown']:.2f} ({mm['max_drawdown_pct']:.1f}%), losing streak {mm['longest_losing_streak']}")
+        smp = data.get("sample", {})
+        if not smp.get("judgeable", True):
+            lines.append(f"Sample: {smp.get('trades_total')} trades - too few to judge (need {smp.get('min_to_judge')}+). Probabilities are uncalibrated (priors).")
+    for row in data.get("shadow_rules", []):
+        lines.append(f"Shadow {row['rule']}: actual {row['actual_pnl']:+.2f} vs simulated {row['simulated_pnl']:+.2f} ({row['difference']:+.2f}), skipped {row['skipped']}")
     for k in ("capital", "bias", "levels", "events", "watchlist", "signals"):
         if k in data:
             lines.append(f"{k.title()}: {json.dumps(data[k], default=str)[:800]}")

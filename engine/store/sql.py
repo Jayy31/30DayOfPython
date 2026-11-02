@@ -86,6 +86,12 @@ class SqlStore(Store):
         with session_scope(self.engine) as s:
             s.add(m.SystemEvent(ts=ts, kind=kind, detail=_json(detail)))
 
+    def save_shadow(self, rule_id: str, rec: TradeRecord, active: bool, simulated_pnl: float, state: dict[str, Any]) -> None:
+        self._mem.save_shadow(rule_id, rec, active, simulated_pnl, state)
+        with session_scope(self.engine) as s:
+            stmt = insert(m.ShadowResult).values(rule_id=rule_id, trade_id=rec.position.id, active=active, simulated_pnl=_d(simulated_pnl), state=_json(state))
+            s.execute(stmt.on_conflict_do_update(constraint="uq_shadow_results_rule_id", set_={"active": stmt.excluded.active, "simulated_pnl": stmt.excluded.simulated_pnl, "state": stmt.excluded.state}))
+
     def job_done(self, job: str, day: date) -> bool:
         with session_scope(self.engine) as s:
             return s.scalar(select(m.SystemEvent.id).where(m.SystemEvent.kind == "job_done", m.SystemEvent.detail["job"].astext == job, m.SystemEvent.detail["day"].astext == day.isoformat())) is not None

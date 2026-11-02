@@ -16,7 +16,8 @@ Fully automated, intraday-only **paper-trading** system for Nifty and Sensex ind
 | 5 | Decision layer: regime, bias, triggers, strike selection, prior probability model (labelled uncalibrated), setup plug-ins, confluence score, reason log | done |
 | 6 | News + LLM: RSS/GDELT/Finnhub fetchers, dedupe, relevance, LLM scoring (JSON schema, retry, rule fallback), spike detection, market confirmation, news bias, token/cost ledger + budget, mock LLM | done |
 | 7 | Live engine + market state, scheduler (all daily jobs, idempotent, holiday-aware), reports (LLM narrative + template fallback), Telegram alerts, Postgres store, feed watchdog, `engine.main replay` | done |
-| 8–11 | Shadow rules + metrics, dashboard, real integrations | pending |
+| 8 | Shadow-rule simulator (exact re-simulation on recorded quote paths, config-driven rules) + metrics (expectancy, PF, drawdown, streaks, capital curve, breakdowns, LLM cost) in weekly/monthly reports | done |
+| 9–11 | Dashboard, dashboard, real integrations | pending |
 
 ## Quick start (replay mode, no credentials needed)
 
@@ -51,6 +52,8 @@ engine/
   reports/       premarket / post-market / weekly / monthly
   alerts/        Telegram + in-memory notifier
   store/         persistence (memory + Postgres)
+  shadow/        shadow-rule plug-ins, re-simulation, simulator
+  metrics/       metrics, breakdowns, report data
   db/            SQLAlchemy models + session (migrations in migrations/)
   broker_paper/  charges, fills, lot sizing, exit ladder, swing trail, paper broker
   risk/          locked trading rules (windows, daily limits, 2nd-trade thresholds)
