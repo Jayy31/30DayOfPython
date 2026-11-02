@@ -1,0 +1,14 @@
+# Index options charges. Rates are in percent of turnover unless noted.
+# VERIFY against current exchange / broker circulars before trusting P&L.
+brokerage_per_order: 0.0        # Kotak Neo Trade API orders currently zero
+gst_pct: 18                     # on brokerage + exchange txn + SEBI fees
+sebi_fee_per_crore: 10          # Rs 10 per crore of turnover
+stt_sell_pct: 0.1               # STT on options premium, sell side
+stamp_duty_buy_pct: 0.003       # buy side
+exchange_txn_pct:
+  NSE: 0.03503
+  BSE: 0.0325
+slippage:
+  per_unit: 0.5                 # Rs added to buys / subtracted from sells
+  fast_move_per_unit: 2.0       # used when the market is moving fast
+tick_size: 0.05

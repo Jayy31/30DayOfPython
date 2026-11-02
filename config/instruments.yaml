@@ -1,0 +1,12 @@
+# Static instrument metadata. Lot sizes and expiries are loaded daily from the
+# scrip master; values here are only fallbacks for mock / replay mode.
+NIFTY:
+  exchange: NSE
+  segment: NFO
+  strike_step: 50
+  fallback_lot_size: 65
+SENSEX:
+  exchange: BSE
+  segment: BFO
+  strike_step: 100
+  fallback_lot_size: 20

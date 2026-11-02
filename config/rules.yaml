@@ -1,0 +1,36 @@
+# Locked trading rules. Validated at startup; invalid config = engine refuses to start.
+capital: 15000
+max_trades_per_day: 2
+max_open_trades: 1
+indices: [NIFTY, SENSEX]
+
+# Stop loss (% of entry premium). Must stay within 18-20.
+sl_pct: 20
+
+# Targets in R multiples (R = sl_pct of entry premium)
+first_target_rr: 1.0
+second_target_rr: 1.5
+
+# SL moves
+breakeven_buffer_pct: 5        # at 1R: SL -> entry * (1 + 5%)
+lock_pct_at_second_target: 20  # at 1.5R: SL -> entry * (1 + 20%)
+
+# Trailing: swing lows of the option premium, active after the 1.5R step
+trail:
+  timeframe_min: 3
+  pivot_bars: 2          # confirmed pivot low = 2 candles each side
+  buffer_pct: 2          # trail SL = swing low * (1 - 2%)
+
+# IST windows
+observe_until: "09:30"
+entry_windows: [["09:30", "11:30"], ["13:30", "14:30"]]
+square_off: "15:15"
+
+# Strike selection
+strike_range: 2
+min_delta: 0.35
+
+# Decision thresholds
+min_probability: 0.60
+min_probability_after_sl: 0.70
+stop_after_target: true   # "target" = trade reached 1R at any point
