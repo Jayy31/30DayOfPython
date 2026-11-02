@@ -13,7 +13,7 @@ Fully automated, intraday-only **paper-trading** system for Nifty and Sensex ind
 | 3 | Paper broker + risk engine: fills, slippage, charges, lot sizing, SL/target/trail ladder, windows, daily limits | done |
 | 2 | Data interfaces + mocks: MarketDataProvider, synthetic market, replay provider, feed-gap monitor, Parquet tick store | done |
 | 4 | Analytics: Greeks/IV, levels, VWAP, opening range, volume profile, confluence, failed breaks, OI map, GEX + flip, straddle, opening type, order flow, futures OI, breadth | done |
-| 5–11 | Decision, decision, news/LLM, scheduler, shadow, dashboard, real integrations | pending |
+| 5–11 | Decision layer, news/LLM, scheduler, shadow, dashboard, real integrations | pending |
 
 ## Quick start (replay mode, no credentials needed)
 
