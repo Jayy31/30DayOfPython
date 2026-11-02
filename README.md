@@ -15,7 +15,7 @@ Fully automated, intraday-only **paper-trading** system for Nifty and Sensex ind
 | 4 | Analytics: Greeks/IV, levels, VWAP, opening range, volume profile, confluence, failed breaks, OI map, GEX + flip, straddle, opening type, order flow, futures OI, breadth | done |
 | 5 | Decision layer: regime, bias, triggers, strike selection, prior probability model (labelled uncalibrated), setup plug-ins, confluence score, reason log | done |
 | 6 | News + LLM: RSS/GDELT/Finnhub fetchers, dedupe, relevance, LLM scoring (JSON schema, retry, rule fallback), spike detection, market confirmation, news bias, token/cost ledger + budget, mock LLM | done |
-| 7–11 | Scheduler, scheduler, shadow, dashboard, real integrations | pending |
+| 7–11 | Scheduler + reports + alerts, shadow rules + metrics, dashboard, real integrations | pending |
 
 ## Quick start (replay mode, no credentials needed)
 
