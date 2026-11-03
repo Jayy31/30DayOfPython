@@ -36,7 +36,7 @@ python -m engine.main run                  # start the scheduler with all daily 
 
 ## Deploying
 
-See [deploy/README.md](deploy/README.md): accounts, `verify-kotak`, Docker on the Oracle VM, Caddy HTTPS, systemd, health alerts, Vercel.
+Step-by-step setup of every account and the server: [docs/SETUP.md](docs/SETUP.md). Short version: [deploy/README.md](deploy/README.md): accounts, `verify-kotak`, Docker on the Oracle VM, Caddy HTTPS, systemd, health alerts, Vercel.
 
 ## Dashboard
 
