@@ -15,7 +15,7 @@ import sys
 from datetime import date
 
 from engine.config.loader import ConfigError, load_config
-from engine.config.settings import Settings
+from engine.config.settings import AppMode, Settings
 from engine.core.logs import setup_logging
 from engine.core.timeutils import now_ist
 from engine.core.trading_calendar import TradingCalendar
@@ -82,6 +82,7 @@ def main(argv: list[str] | None = None) -> int:
     rp.add_argument("--days", type=int, default=1)
     rp.add_argument("--serve", action="store_true")
     sub.add_parser("run")
+    sub.add_parser("verify-kotak", help="read-only check of the Kotak account against the engine's assumptions")
     args = parser.parse_args(argv)
 
     settings = Settings()
@@ -94,6 +95,11 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     if args.cmd == "replay":
         return asyncio.run(_replay(settings, cfg, args.day, args.days, args.serve))
+    if args.cmd == "verify-kotak":
+        from engine.app import App
+        from engine.tools.verify_kotak import main as verify
+
+        return verify(cfg, App(settings.model_copy(update={"app_mode": AppMode.LIVE_DATA}), cfg).kotak())
     if args.cmd == "run":
         return asyncio.run(_run(settings, cfg))
     cal = TradingCalendar(cfg.holidays)

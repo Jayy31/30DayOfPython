@@ -1,0 +1,8 @@
+.git
+.env
+data/
+dashboard/
+**/__pycache__
+.pytest_cache
+tests/
+notebooks/

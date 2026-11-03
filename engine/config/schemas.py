@@ -101,11 +101,78 @@ class ChargesConfig(_Strict):
     tick_size: float = Field(gt=0)
 
 
+class KotakIndexConfig(_Strict):
+    fo_segment: str
+    underlying: str
+    index_segment: str
+    index_token: str
+
+
 class InstrumentConfig(_Strict):
     exchange: Literal["NSE", "BSE"]
     segment: str
     strike_step: int = Field(gt=0)
     fallback_lot_size: int = Field(gt=0)
+    kotak: KotakIndexConfig | None = None
+
+
+class FeedToken(_Strict):
+    segment: str
+    token: str
+
+
+class Heavyweight(_Strict):
+    symbol: str
+    token: str
+    weight: float = Field(gt=0)
+
+
+class KotakFeedsConfig(_Strict):
+    strikes_each_side: int = Field(ge=2, le=40)
+    universe_count: int = Field(ge=20, le=200)
+    vix: FeedToken
+    bank_nifty: FeedToken
+    heavyweights: list[Heavyweight]
+    reconnect_max_backoff_seconds: int = Field(gt=0)
+    rest_quote_fallback_seconds: int = Field(gt=0)
+
+    @model_validator(mode="after")
+    def _count(self) -> KotakFeedsConfig:
+        if self.universe_count % 10:
+            raise ValueError("kotak.universe_count must be a multiple of 10 (backend rule)")
+        return self
+
+
+class GlobalInstrument(_Strict):
+    id: str
+    symbol: str
+    sign: Literal[-1, 1]
+    weight: float = Field(ge=0)
+
+
+class GlobalMarketsConfig(_Strict):
+    source: Literal["yahoo"]
+    instruments: list[GlobalInstrument]
+    gift_nifty: str | None = None
+    score_scale_pct: float = Field(gt=0)
+
+
+class NseConfig(_Strict):
+    base_url: str
+    archives_url: str
+    min_seconds_between_requests: float = Field(ge=1)
+    endpoints: dict[str, str]
+
+
+class StorageConfig(_Strict):
+    prefix: str
+
+
+class FeedsConfig(_Strict):
+    kotak: KotakFeedsConfig
+    global_markets: GlobalMarketsConfig
+    nse: NseConfig
+    storage: StorageConfig
 
 
 class ShadowRuleConfig(_Strict):
@@ -134,6 +201,7 @@ class AppConfig(_Strict):
     decision: "DecisionConfig"
     llm: "LlmConfig"
     news: "NewsConfig"
+    feeds: "FeedsConfig"
 
     @model_validator(mode="after")
     def _instruments_cover_indices(self) -> AppConfig:

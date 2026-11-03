@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta
 
 from engine.analytics.bias import BiasRead, read_bias
+from engine.analytics.breadth import Breadth
 from engine.analytics.gex import GexResult, compute_gex
 from engine.analytics.levels import (
     FailedBreak, FailedBreakDetector, Level, OpeningRange, Vwap, confluence_zones, previous_day_levels,
@@ -54,6 +55,7 @@ class IndexState:
     chain_refresh: timedelta = timedelta(minutes=3)   # option chain / OI / GEX cadence
 
     spot: float | None = None
+    prev_close: float | None = None
     bars: dict[datetime, _Bar] = field(default_factory=dict)
     vwap: Vwap = field(default_factory=Vwap)
     opening_range: OpeningRange = field(default_factory=OpeningRange)
@@ -112,6 +114,8 @@ class IndexState:
 
     def _on_spot(self, t: Tick) -> None:
         self.spot = t.ltp
+        if t.close:
+            self.prev_close = t.close
         m = floor_to_minutes(t.ts, 1)
         b = self.bars.get(m)
         if b is None:
@@ -204,18 +208,24 @@ class IndexState:
         inputs.setdefault("writers", float(self.shift.bias) if self.shift and self.shift.bias else None)
         return read_bias(self.cfg.decision.bias, self.index, inputs, nifty_futures_proxy)
 
-    def trigger(self, now: datetime) -> TriggerRead:
+    def trigger(self, now: datetime, breadth: Breadth | None = None) -> TriggerRead:
         recent = [fb for fb in self.failed_breaks if now - fb.rejected_at <= timedelta(minutes=5)]
         return read_trigger(
             TriggerInputs(
                 window_delta=self.delta.window_normalized,
                 depth_imbalance=self.last_depth,
                 futures_oi=self.futures_class(),
+                breadth=breadth,
                 failed_break=recent[-1] if recent else None,
             )
         )
 
-    def context(self, now: datetime, external_bias: Mapping[str, float | None], events: Sequence[str] = (), nifty_futures_proxy: float | None = None) -> MarketContext | None:
+    def change_pct(self) -> float | None:
+        if self.spot is None or not self.prev_close:
+            return None
+        return (self.spot / self.prev_close - 1) * 100
+
+    def context(self, now: datetime, external_bias: Mapping[str, float | None], events: Sequence[str] = (), nifty_futures_proxy: float | None = None, breadth: Breadth | None = None) -> MarketContext | None:
         if self.spot is None or self.regime is None:
             return None
         st = self.straddle.state() if self.straddle else None
@@ -224,10 +234,26 @@ class IndexState:
         orr = self.opening_range
         return MarketContext(
             ts=now, index=self.index, spot=self.spot, regime=self.regime,
-            bias=self.bias(external_bias, nifty_futures_proxy), trigger=self.trigger(now),
+            bias=self.bias(external_bias, nifty_futures_proxy), trigger=self.trigger(now, breadth),
             zones=tuple(confluence_zones(self.levels(), lc.zone_tolerance_pct, lc.min_sources)),
             closes_1m=tuple(self.closes(30, before=floor_to_minutes(now, 1))),
             vwap=self.vwap.value, or_high=orr.high, or_low=orr.low, or_complete=orr.complete,
             failed_break=recent_fb[-1] if recent_fb else None, wall_shift=self.shift, gex=self.gex,
             day_implied_move=st.day_implied_move if st else None, events=tuple(events),
         )
+
+
+    # ------------------------------------------------------- option window
+    def option_window(self, center: float, n: int) -> list[Instrument]:
+        """Options of the traded expiry within center +/- n strikes (both CE and PE)."""
+        strikes = sorted({i.strike for i in self._opts.values() if i.strike is not None})
+        if not strikes:
+            return []
+        c = min(strikes, key=lambda k: abs(k - center))
+        i = strikes.index(c)
+        keep = set(strikes[max(0, i - n) : i + n + 1])
+        return [inst for inst in self._opts.values() if inst.strike in keep]
+
+    def drop_options(self, tokens: set[str]) -> None:
+        for tok in tokens:
+            self.options.pop(tok, None)

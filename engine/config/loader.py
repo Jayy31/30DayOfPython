@@ -24,6 +24,7 @@ _FILES = {
     "decision": "decision.yaml",
     "llm": "llm.yaml",
     "news": "news_sources.yaml",
+    "feeds": "feeds.yaml",
 }
 
 

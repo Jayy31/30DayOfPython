@@ -1,0 +1,53 @@
+# Live-data inputs outside the two traded indices. Items marked VERIFY must be checked
+# against the broker / source once accounts exist (python -m engine.main verify-kotak).
+
+kotak:
+  strikes_each_side: 10         # subscribe ATM +/- 10 for the traded expiry
+  universe_count: 80            # option_chain count (calls + puts each); window moves inside it
+  vix: {segment: nse_cm, token: "INDIA VIX"}            # VERIFY (not in SDK docs)
+  bank_nifty: {segment: nse_cm, token: "Nifty Bank"}    # documented
+  heavyweights:                 # NSE cash tokens - VERIFY; weights are approximate Nifty weights (%)
+    - {symbol: HDFCBANK,   token: "1333",  weight: 13.0}
+    - {symbol: RELIANCE,   token: "2885",  weight: 8.5}
+    - {symbol: ICICIBANK,  token: "4963",  weight: 8.5}
+    - {symbol: INFY,       token: "1594",  weight: 5.0}
+    - {symbol: BHARTIARTL, token: "10604", weight: 4.5}
+    - {symbol: LT,         token: "11483", weight: 4.0}
+    - {symbol: ITC,        token: "1660",  weight: 3.5}
+    - {symbol: TCS,        token: "11536", weight: 3.0}
+    - {symbol: SBIN,       token: "3045",  weight: 3.0}
+    - {symbol: AXISBANK,   token: "5900",  weight: 3.0}
+  reconnect_max_backoff_seconds: 60
+  rest_quote_fallback_seconds: 5
+
+# Overnight cross-asset score (Layer B 'overnight'). Yahoo Finance chart endpoint
+# (unofficial). sign: +1 if a rise is bullish for Indian indices, -1 if bearish.
+# weight: PRIORS until Layer F measures lead-lag from our own data.
+global_markets:
+  source: yahoo
+  instruments:
+    - {id: SP500,      symbol: "^GSPC",    sign: 1,  weight: 1.0}
+    - {id: US_FUTURES, symbol: "ES=F",     sign: 1,  weight: 1.5}
+    - {id: NASDAQ_FUT, symbol: "NQ=F",     sign: 1,  weight: 0.8}
+    - {id: NIKKEI,     symbol: "^N225",    sign: 1,  weight: 0.6}
+    - {id: HANG_SENG,  symbol: "^HSI",     sign: 1,  weight: 0.5}
+    - {id: DXY,        symbol: "DX-Y.NYB", sign: -1, weight: 0.6}
+    - {id: USDINR,     symbol: "INR=X",    sign: -1, weight: 0.8}
+    - {id: CRUDE,      symbol: "CL=F",     sign: -1, weight: 0.8}
+    - {id: GOLD,       symbol: "GC=F",     sign: -1, weight: 0.2}
+    - {id: US10Y,      symbol: "^TNX",     sign: -1, weight: 0.5}
+  gift_nifty: null              # no reliable free source: weight 0 and flagged in the premarket report
+  score_scale_pct: 1.0          # tanh(weighted % move / scale)
+
+nse:
+  base_url: "https://www.nseindia.com"
+  archives_url: "https://nsearchives.nseindia.com"
+  min_seconds_between_requests: 3
+  endpoints:                    # VERIFY: NSE changes these without notice
+    holidays: "/api/holiday-master?type=trading"
+    fii_dii: "/api/fiidiiTradeReact"
+    participant_oi: "/content/nsccl/fao_participant_oi_{ddmmyyyy}.csv"
+    fo_bhavcopy: "/content/fo/BhavCopy_NSE_FO_0_0_0_{yyyymmdd}_F_0000.csv.zip"
+
+storage:
+  prefix: papertrade

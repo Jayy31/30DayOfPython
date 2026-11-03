@@ -18,7 +18,8 @@ Fully automated, intraday-only **paper-trading** system for Nifty and Sensex ind
 | 7 | Live engine + market state, scheduler (all daily jobs, idempotent, holiday-aware), reports (LLM narrative + template fallback), Telegram alerts, Postgres store, feed watchdog, `engine.main replay` | done |
 | 8 | Shadow-rule simulator (exact re-simulation on recorded quote paths, config-driven rules) + metrics (expectancy, PF, drawdown, streaks, capital curve, breakdowns, LLM cost) in weekly/monthly reports | done |
 | 9 | Dashboard: read-only engine API (FastAPI, bearer token) + Next.js app (Today, Trades, Metrics, Shadow rules, Reports) with Basic auth | done |
-| 10–11 | Real integrations, validation run | pending |
+| 10 | Real integrations: Kotak Neo provider (SDK 3.0.13, SFeed WebSocket, REST), `verify-kotak`, NSE (holidays, FII/DII, participant OI, bhavcopy), global prices + overnight score, news polling, object storage, Supabase backups, Docker/Caddy/systemd deploy | done (untested against live accounts) |
+| 11 | Validation run: 1–2 weeks in `live_data` mode | pending (needs your accounts) |
 
 ## Quick start (replay mode, no credentials needed)
 
@@ -32,6 +33,10 @@ python -m engine.main                      # validate config
 python -m engine.main replay 2026-11-03    # run one synthetic day end to end (premarket -> live -> postmarket)
 python -m engine.main run                  # start the scheduler with all daily jobs + the dashboard API
 ```
+
+## Deploying
+
+See [deploy/README.md](deploy/README.md): accounts, `verify-kotak`, Docker on the Oracle VM, Caddy HTTPS, systemd, health alerts, Vercel.
 
 ## Dashboard
 
@@ -82,7 +87,8 @@ engine/
   broker_paper/  charges, fills, lot sizing, exit ladder, swing trail, paper broker
   risk/          locked trading rules (windows, daily limits, 2nd-trade thresholds)
 dashboard/       Next.js dashboard (Vercel)
-config/          rules.yaml, decision.yaml, llm.yaml, news_sources.yaml, charges.yaml, instruments.yaml, shadow_rules.yaml, holidays.yaml
+docker/, deploy/  production image, compose, Caddy, systemd units, health check
+config/          rules.yaml, feeds.yaml, decision.yaml, llm.yaml, news_sources.yaml, charges.yaml, instruments.yaml, shadow_rules.yaml, holidays.yaml
 ```
 
 ## Locked exit ladder (R = SL distance = sl_pct of entry premium)

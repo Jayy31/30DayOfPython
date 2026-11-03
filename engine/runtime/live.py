@@ -20,7 +20,7 @@ from engine.core.models import Index, OptionQuote
 from engine.core.timeutils import floor_to_minutes, to_ist
 from engine.data.broker.base import MarketDataProvider
 from engine.data.feed_monitor import FeedMonitor
-from engine.data.models import Instrument, Tick
+from engine.data.models import Instrument, InstrumentKind, Tick
 from engine.decision.engine import DecisionEngine, IndexInputs, TradePlan
 from engine.decision.reasons import add_exit, render_text
 from engine.risk.engine import RiskEngine
@@ -57,6 +57,11 @@ class LiveEngine:
         events: EventsFn | None = None,
         feed_gap_seconds: float = 10.0,
         size_fraction: float = 1.0,
+        option_window: int | None = None,
+        initial_centers: dict[Index, float] | None = None,
+        heavyweights: dict[str, tuple[str, float]] | None = None,   # token -> (symbol, weight)
+        vix_token: str | None = None,
+        extra_instruments: list[Instrument] | None = None,
     ) -> None:
         self.cfg = cfg
         self.provider = provider
@@ -71,6 +76,14 @@ class LiveEngine:
         self.monitor = FeedMonitor(feed_gap_seconds)
         self.size_fraction = size_fraction
         self._token_state = {tok: st for st in states.values() for tok in st.tokens()}
+        self.option_window = option_window
+        self._centers: dict[Index, float] = dict(initial_centers or {})
+        self._window_tokens: dict[Index, set[str]] = {}
+        self.heavyweights = heavyweights or {}
+        self.equity_px: dict[str, tuple[float, float]] = {}
+        self.vix_token = vix_token
+        self.vix: float | None = None
+        self.extra_instruments = extra_instruments or []
         self._minute: datetime | None = None
         self._plan: TradePlan | None = None
         self._last_quote: OptionQuote | None = None
@@ -86,7 +99,7 @@ class LiveEngine:
     async def run_day(self, day: date, instruments: list[Instrument]) -> DayResult:
         self._result = DayResult(day=day)
         await self.provider.connect()
-        await self.provider.subscribe([i for i in instruments if i.token in self._token_state])
+        await self.provider.subscribe(self._initial_subscriptions(instruments))
         try:
             async for tick in self.provider.ticks():
                 if tick.ts.date() != day:
@@ -113,6 +126,10 @@ class LiveEngine:
         st = self._token_state.get(tick.token)
         if st is not None:
             st.on_tick(tick)
+        elif tick.token in self.heavyweights:
+            self.equity_px[tick.token] = (tick.ltp, tick.close)
+        elif tick.token == self.vix_token:
+            self.vix = tick.ltp
         for done in self._closed_today:
             if tick.token == done.contract.symbol and tick.ts.time() <= self.cfg.rules.square_off:
                 done.path.append(tick.to_quote())
@@ -128,6 +145,8 @@ class LiveEngine:
     async def on_minute(self, now: datetime) -> None:
         for st in self.states.values():
             st.refresh(now)
+        if self.option_window:
+            await self._rewindow()
         if self.risk.must_square_off(now):
             await self._final_square_off()
             return
@@ -138,7 +157,7 @@ class LiveEngine:
         nifty = self.states.get(Index.NIFTY)
         proxy = float(nifty.futures_class().bias) if nifty else None
         for idx, st in self.states.items():
-            ctx = st.context(now, self.external_bias(idx, now), events, proxy if idx is Index.SENSEX else None)
+            ctx = st.context(now, self.external_bias(idx, now), events, proxy if idx is Index.SENSEX else None, self._breadth(st))
             if ctx is not None:
                 self.last_ctx[idx] = ctx
             chain = st.chain(now)
@@ -157,6 +176,8 @@ class LiveEngine:
             await self._enter(res.plan, now)
 
     async def _enter(self, plan: TradePlan, now: datetime) -> None:
+        if self.vix is not None:
+            plan.reason_log["vix"] = self.vix
         st = self.states[plan.index]
         tick = st.options.get(plan.contract.symbol)
         if tick is None:
@@ -209,6 +230,68 @@ class LiveEngine:
         if self._minute is not None:
             quote = quote.model_copy(update={"ts": max(quote.ts, to_ist(self._minute))})
         await self._handle_legs(self.broker.square_off(quote), pos)
+
+    # ------------------------------------------------- subscriptions/breadth
+    def _initial_subscriptions(self, instruments: list[Instrument]) -> list[Instrument]:
+        known = {i.token: i for i in instruments}
+        if not self.option_window:
+            return [i for i in instruments if i.token in self._token_state]
+        subs: dict[str, Instrument] = {}
+        for idx, st in self.states.items():
+            for tok in st.tokens():
+                inst = known.get(tok)
+                if inst is not None and inst.kind is not InstrumentKind.OPTION:
+                    subs[tok] = inst
+            center = self._centers.get(idx)
+            if center is not None:
+                win = st.option_window(center, self.option_window)
+                self._window_tokens[idx] = {i.token for i in win}
+                subs.update({i.token: i for i in win})
+        for inst in self.extra_instruments:
+            subs[inst.token] = inst
+        return list(subs.values())
+
+    async def _rewindow(self) -> None:
+        """Re-centre each option window when spot drifts >= 3 strikes from its centre."""
+        assert self.option_window
+        open_tok = self.broker.position.contract.symbol if self.broker.position else None
+        for idx, st in self.states.items():
+            if st.spot is None:
+                continue
+            step = self.cfg.instruments[idx.value].strike_step  # type: ignore[index]
+            center = self._centers.get(idx)
+            if center is not None and abs(st.spot - center) < 3 * step:
+                continue
+            win = st.option_window(st.spot, self.option_window)
+            new = {i.token for i in win}
+            old = self._window_tokens.get(idx, set())
+            add = [i for i in win if i.token not in old]
+            keep_open = {open_tok} & old if open_tok else set()
+            drop_tokens = old - new - keep_open
+            if add:
+                await self.provider.subscribe(add)
+            if drop_tokens:
+                await self.provider.unsubscribe([st._opts[t] for t in drop_tokens if t in st._opts])
+                st.drop_options(drop_tokens)
+            self._window_tokens[idx] = new | keep_open
+            strikes = [i.strike for i in win if i.strike is not None]
+            self._centers[idx] = min(strikes, key=lambda k: abs(k - st.spot)) if strikes else st.spot
+
+    def _breadth(self, st: IndexState):  # type: ignore[no-untyped-def]
+        idx_chg = st.change_pct()
+        if not self.equity_px or idx_chg is None:
+            return None
+        from engine.analytics.breadth import heavyweight_breadth
+
+        weights, changes = {}, {}
+        for tok, (sym, w) in self.heavyweights.items():
+            px = self.equity_px.get(tok)
+            if px and px[1]:
+                weights[sym] = w
+                changes[sym] = (px[0] / px[1] - 1) * 100
+        if not weights:
+            return None
+        return heavyweight_breadth(weights, changes, idx_chg)
 
     # ---------------------------------------------------------- feed watchdog
     async def watchdog(self, now: datetime) -> None:
@@ -275,6 +358,7 @@ class LiveEngine:
             "feed_stale": self._feed_down_alerted,
             "capital": self.broker.capital,
             "open_trade": open_trade,
+            "vix": self.vix,
             "day": {"date": res.day.isoformat(), "trades": len(res.trades), "signals": res.signals, "feed_gaps": res.feed_gaps, "net_pnl": round(sum(t.net_pnl for t in res.trades), 2)} if res else None,
             "indices": indices,
             "signals": [

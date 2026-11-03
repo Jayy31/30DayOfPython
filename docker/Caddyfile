@@ -1,0 +1,6 @@
+# Automatic HTTPS (Let's Encrypt) for the read-only engine API used by the Vercel dashboard.
+{$API_DOMAIN} {
+	encode gzip
+	reverse_proxy engine:8000
+	header -Server
+}
