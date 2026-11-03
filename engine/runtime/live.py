@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Mapping
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
@@ -77,6 +78,9 @@ class LiveEngine:
         self._feed_down_alerted = False
         self.recorded: list[Tick] | None = None   # set to [] to keep the day's ticks for Parquet
         self._closed_today: list[Position] = []   # keep extending their quote path until square-off
+        self.last_ctx: dict[Index, object] = {}
+        self.recent_signals: deque = deque(maxlen=50)   # type: ignore[type-arg]
+        self.last_tick_ts: datetime | None = None
 
     # ------------------------------------------------------------ main loop
     async def run_day(self, day: date, instruments: list[Instrument]) -> DayResult:
@@ -96,6 +100,7 @@ class LiveEngine:
     async def on_tick(self, tick: Tick) -> None:
         assert self._result is not None
         self._result.ticks += 1
+        self.last_tick_ts = tick.ts
         if self.recorded is not None:
             self.recorded.append(tick)
         gap = self.monitor.on_tick(tick.ts)
@@ -126,7 +131,7 @@ class LiveEngine:
         if self.risk.must_square_off(now):
             await self._final_square_off()
             return
-        if self.broker.has_open_position or not self.risk.in_entry_window(now):
+        if self.broker.has_open_position or not self.risk.in_entry_window(now) or self.risk.day_closed(now):
             return
         inputs = []
         events = self.events(now)
@@ -134,6 +139,8 @@ class LiveEngine:
         proxy = float(nifty.futures_class().bias) if nifty else None
         for idx, st in self.states.items():
             ctx = st.context(now, self.external_bias(idx, now), events, proxy if idx is Index.SENSEX else None)
+            if ctx is not None:
+                self.last_ctx[idx] = ctx
             chain = st.chain(now)
             if ctx is None or chain is None:
                 continue
@@ -145,6 +152,7 @@ class LiveEngine:
             assert self._result is not None
             self._result.signals += len(res.signals)
             self.store.save_signals(res.signals)
+            self.recent_signals.extend(res.signals)
         if res.plan is not None:
             await self._enter(res.plan, now)
 
@@ -224,3 +232,55 @@ class LiveEngine:
         self._last_quote = q
         legs = self.broker.square_off(q) if self.risk.must_square_off(now) else self.broker.on_quote(q)
         await self._handle_legs(legs, pos)
+
+
+    # ------------------------------------------------------------ snapshot
+    def snapshot(self) -> dict:  # type: ignore[type-arg]
+        """Read-only view of the live state for the dashboard API."""
+        pos = self.broker.position
+        indices = {}
+        for idx, st in self.states.items():
+            ctx = self.last_ctx.get(idx)
+            sst = st.straddle.state() if st.straddle else None
+            indices[idx.value] = {
+                "spot": st.spot,
+                "vwap": st.vwap.value,
+                "or_high": st.opening_range.high,
+                "or_low": st.opening_range.low,
+                "regime": {"label": st.regime.label, "confidence": round(st.regime.confidence, 3), "drivers": list(st.regime.drivers)} if st.regime else None,
+                "bias": {"label": ctx.bias.label, "score": round(ctx.bias.score, 3)} if ctx is not None else None,  # type: ignore[attr-defined]
+                "trigger": {"direction": ctx.trigger.direction, "strength": round(ctx.trigger.strength, 3)} if ctx is not None else None,  # type: ignore[attr-defined]
+                "zones": [{"price": round(z.price, 2), "sources": sorted(set(z.sources))} for z in (ctx.zones if ctx is not None else ())],  # type: ignore[attr-defined]
+                "call_wall": st.oi.call_wall if st.oi else None,
+                "put_wall": st.oi.put_wall if st.oi else None,
+                "pcr": round(st.oi.pcr, 3) if st.oi else None,
+                "gex": {"regime": st.gex.regime, "flip": round(st.gex.flip, 2) if st.gex.flip else None} if st.gex else None,
+                "straddle": {"label": sst.label, "expansion": round(sst.expansion, 4), "day_implied_move": round(sst.day_implied_move, 2), "range_used": round(sst.range_used, 3)} if sst else None,
+                "opening": st.opening.type.value if st.opening else None,
+                "futures_oi": st.futures_class().value,
+            }
+        open_trade = None
+        if pos is not None and pos.is_open:
+            q = pos.last_quote
+            open_trade = {
+                "symbol": pos.contract.key, "index": pos.contract.index.value, "strike": pos.contract.strike,
+                "option_type": pos.contract.option_type.value, "direction": pos.direction.value, "setup": pos.setup,
+                "lots": pos.lots, "open_lots": pos.open_lots, "entry_price": pos.entry_price, "entry_ts": pos.entry_ts.isoformat(),
+                "sl": pos.sl, "target_1": pos.target_1, "target_2": pos.target_2, "stage": pos.stage, "trailed": pos.trailed,
+                "bid": q.bid if q else None, "mtm": self.broker.mark_to_market(), "probability": pos.probability,
+            }
+        res = self._result
+        return {
+            "last_tick": self.last_tick_ts.isoformat() if self.last_tick_ts else None,
+            "feed_stale": self._feed_down_alerted,
+            "capital": self.broker.capital,
+            "open_trade": open_trade,
+            "day": {"date": res.day.isoformat(), "trades": len(res.trades), "signals": res.signals, "feed_gaps": res.feed_gaps, "net_pnl": round(sum(t.net_pnl for t in res.trades), 2)} if res else None,
+            "indices": indices,
+            "signals": [
+                {"ts": s.ts.isoformat(), "index": s.index.value, "setup": s.setup, "direction": s.direction.value, "score": s.score,
+                 "probability": s.probability.p if s.probability else None, "probability_label": s.probability.label if s.probability else None,
+                 "taken": s.taken, "reasons": list(s.reject_reasons)}
+                for s in reversed(self.recent_signals)
+            ],
+        }

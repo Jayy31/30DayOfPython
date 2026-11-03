@@ -60,6 +60,7 @@ class App:
         self.decision = DecisionEngine(self.cfg, self.risk)
         self.tick_store = self.tick_store or ParquetTickStore(Path("data"))
         self.last_result: DayResult | None = None
+        self.live: LiveEngine | None = None
         self.premarket_data: dict[str, object] = {}
 
     # ----------------------------------------------------------- providers
@@ -108,6 +109,7 @@ class App:
             events=self.news.active_events,
         )
         engine.recorded = []
+        self.live = engine
         self.last_result = await engine.run_day(day, instruments)
         self._day_ticks = engine.recorded
         return self.last_result

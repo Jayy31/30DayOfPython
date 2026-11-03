@@ -59,6 +59,13 @@ class RiskEngine:
     def must_square_off(self, now: datetime) -> bool:
         return to_ist(now).time() >= self.rules.square_off
 
+    def day_closed(self, now: datetime) -> bool:
+        """No further entry is possible today (limit reached or target hit), so skip evaluation."""
+        st = self._day(now)
+        if st.trades_taken >= self.rules.max_trades_per_day:
+            return True
+        return self.rules.stop_after_target and any(t.outcome is Outcome.TARGET for t in st.closed)
+
     def required_probability(self, now: datetime) -> float:
         st = self._day(now)
         if any(t.outcome is Outcome.SL for t in st.closed):
@@ -94,7 +101,7 @@ class RiskEngine:
                 if last.index is not index:
                     tags.append("index_switch_same_bet")
         if probability < required:
-            reasons.append(f"probability {probability:.2f} < required {required:.2f}")
+            reasons.append(f"probability {probability:.3f} < required {required:.2f}")
 
         return RiskDecision(allowed=not reasons, required_probability=required, reasons=tuple(reasons), tags=tuple(tags))
 

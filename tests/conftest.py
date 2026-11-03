@@ -31,3 +31,21 @@ DAY = date(2026, 11, 3)  # a Tuesday
 
 def at(hh: int, mm: int, ss: int = 0, d: date = DAY) -> datetime:
     return datetime.combine(d, time(hh, mm, ss), tzinfo=IST)
+
+
+@pytest.fixture(autouse=True)
+def _clean_db_after(request):
+    """Tests marked `db` must not leave rows behind in the developer's database."""
+    yield
+    if request.node.get_closest_marker("db") is None:
+        return
+    from sqlalchemy import text
+
+    from engine.config.settings import Settings
+    from engine.db.session import make_engine
+
+    try:
+        with make_engine(Settings().database_url).begin() as c:
+            c.execute(text("TRUNCATE trades, trade_legs, trade_reasons, capital_ledger, signals, reports, system_events, shadow_results CASCADE"))
+    except Exception:
+        pass

@@ -49,6 +49,15 @@ class Settings(BaseSettings):
     telegram_bot_token: SecretStr | None = None
     telegram_chat_id: str | None = None
 
+    engine_api_host: str = "127.0.0.1"
+    engine_api_port: int = 8000
+    engine_api_token: SecretStr | None = None      # read-only bearer token for the dashboard
+    dashboard_origins: str = ""                    # comma-separated, e.g. https://papertrade.vercel.app
+    store_backend: str = "memory"                  # memory | postgres
+
+    def cors_origins(self) -> list[str]:
+        return [o.strip() for o in self.dashboard_origins.split(",") if o.strip()]
+
     def require_live_credentials(self) -> None:
         """In live_data mode the Kotak credentials must be present."""
         if self.app_mode is not AppMode.LIVE_DATA:

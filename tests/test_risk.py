@@ -99,3 +99,11 @@ def test_overnight_open_trade_refused(risk):
 def test_must_square_off(risk):
     assert not risk.must_square_off(at(15, 14, 59))
     assert risk.must_square_off(at(15, 15))
+
+
+def test_day_closed(risk):
+    assert not risk.day_closed(at(10, 0))
+    close(risk, at(10, 0), N, L, Outcome.SL)
+    assert not risk.day_closed(at(10, 5))
+    close(risk, at(10, 30), X, S, Outcome.TARGET)
+    assert risk.day_closed(at(10, 35))
