@@ -1,0 +1,4 @@
+# NSE/BSE trading holidays. Replace with the official exchange list each year
+# (the NSE fetcher will refresh this in Phase 10).
+2026: []
+2027: []

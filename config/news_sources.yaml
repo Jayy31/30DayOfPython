@@ -1,0 +1,45 @@
+# News sources (all free to start), topic buckets and pipeline settings.
+# News feeds bias, context and alerts. It is never an entry trigger.
+poll_market_seconds: 90
+poll_overnight_seconds: 900
+dedupe_similarity: 0.6          # token Jaccard on titles
+dedupe_window_minutes: 180
+spike_min_sources: 3            # a topic across >= 3 sources ...
+spike_window_minutes: 20        # ... within 20 minutes = breaking event
+llm_batch_size: 20
+
+# |move| % since the story that counts as the market reacting
+confirm_moves_pct: {GIFT_NIFTY: 0.3, US_FUTURES: 0.4, CRUDE: 1.0, GOLD: 0.7, USDINR: 0.2}
+
+topics:
+  geopolitics_war: [war, missile, strike, military, invasion, ceasefire, sanctions, border, conflict, attack]
+  trade_tariffs: [tariff, trade deal, trade war, export ban, import duty, wto]
+  central_banks: [rbi, repo rate, fed, fomc, ecb, boj, rate cut, rate hike, monetary policy, powell, malhotra]
+  commodities: [crude, brent, oil, opec, gold, silver, natural gas]
+  global_markets: [dow, nasdaq, s&p 500, wall street, nikkei, hang seng, treasury yield, dollar index, dxy]
+  india_macro: [cpi, inflation, gdp, iip, fiscal deficit, gst collection, budget, pmi, trade deficit, rupee]
+  tech_ai: [nvidia, semiconductor, ai, artificial intelligence, it services, tech layoffs]
+  elections: [election, exit poll, poll results, vote count]
+  policymakers: [prime minister, president, finance minister, treasury secretary, statement, said on]
+
+index_keywords:
+  NIFTY: [nifty, nse, sensex, bse, dalal street, fii, dii, india vix, gift nifty]
+  HEAVYWEIGHTS: [hdfc bank, reliance, icici bank, infosys, bharti airtel, tcs, itc, larsen, axis bank, kotak, sbi, bajaj finance]
+
+sources:
+  - {id: nse_announcements, kind: rss, url: "https://nsearchives.nseindia.com/content/RSS/Online_announcements.xml", official: true}
+  - {id: rbi_press, kind: rss, url: "https://rbi.org.in/pressreleases_rss.xml", official: true}
+  - {id: pib, kind: rss, url: "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=3", official: true}
+  - {id: sebi, kind: rss, url: "https://www.sebi.gov.in/sebirss.xml", official: true}
+  - {id: moneycontrol_markets, kind: rss, url: "https://www.moneycontrol.com/rss/marketreports.xml"}
+  - {id: et_markets, kind: rss, url: "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms"}
+  - {id: business_standard_markets, kind: rss, url: "https://www.business-standard.com/rss/markets-106.rss"}
+  - {id: livemint_markets, kind: rss, url: "https://www.livemint.com/rss/markets"}
+  - {id: cnbctv18_markets, kind: rss, url: "https://www.cnbctv18.com/commonfeeds/v1/cne/rss/market.xml"}
+  - {id: ndtv_profit, kind: rss, url: "https://feeds.feedburner.com/ndtvprofit-latest"}
+  - {id: gnews_geopolitics, kind: rss, url: "https://news.google.com/rss/search?q=war+OR+sanctions+OR+geopolitics&hl=en-IN&gl=IN&ceid=IN:en"}
+  - {id: gnews_central_banks, kind: rss, url: "https://news.google.com/rss/search?q=fed+OR+rbi+OR+ecb+rate&hl=en-IN&gl=IN&ceid=IN:en"}
+  - {id: gnews_commodities, kind: rss, url: "https://news.google.com/rss/search?q=crude+oil+OR+gold+price&hl=en-IN&gl=IN&ceid=IN:en"}
+  - {id: gdelt_global, kind: gdelt, query: "(war OR sanctions OR tariff OR \"central bank\") sourcelang:english"}
+  - {id: finnhub_general, kind: finnhub, query: general}
+# Source URLs change; verify each feed once before going live (Phase 10).

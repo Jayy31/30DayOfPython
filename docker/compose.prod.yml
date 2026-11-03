@@ -1,0 +1,35 @@
+# Production on the Oracle VM:  docker compose -f docker/compose.prod.yml up -d --build
+# Postgres is Supabase (DATABASE_URL in .env); Caddy terminates TLS for the dashboard API.
+services:
+  engine:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    env_file: ../.env
+    environment:
+      APP_MODE: live_data
+      STORE_BACKEND: postgres
+      ENGINE_API_HOST: 0.0.0.0
+      ENGINE_API_PORT: "8000"
+      TIMEZONE: Asia/Kolkata
+    volumes:
+      - engine-data:/app/data
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: "20m", max-file: "5"}
+
+  caddy:
+    image: caddy:2.8
+    depends_on: [engine]
+    ports: ["80:80", "443:443"]
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in the shell or a .env next to this file}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    restart: unless-stopped
+
+volumes:
+  engine-data:
+  caddy-data:

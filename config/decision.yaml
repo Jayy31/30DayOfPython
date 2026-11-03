@@ -1,0 +1,53 @@
+# Decision layer (Layers A-F). Tunable; the locked trading rules live in rules.yaml.
+
+regime:
+  trend_weights:     {negative_gamma: 1.0, straddle_expanding: 1.0, opening_drive: 1.0, ib_extension_high: 0.5}
+  range_weights:     {positive_gamma: 1.0, straddle_decaying: 1.0, opening_auction: 1.0, ib_extension_low: 0.5}
+  min_edge: 1.0                # trend/range points difference needed to label the day
+  families:                    # setup families each regime allows
+    trend: [breakout, trend, reversal, vwap]
+    range: [mean_reversion, reversal, vwap]
+    unclear: [reversal]
+
+bias:
+  weights:
+    overnight: 1.0             # cross-asset score (weights inside come from measured lead-lag)
+    gift_nifty: 0.0            # optional; 0 until a reliable source exists
+    positioning: 0.7           # FII index futures/options
+    writers: 0.8               # OI wall shifts
+    news: 0.6
+    futures_oi: 0.8
+    breadth: 0.6
+    premium_flow: 0.5
+  sensex_futures_proxy_weight: 0.5   # Nifty futures OI/flow as Sensex directional proxy
+  neutral_band: 0.15
+  max_counter_bias: 0.3        # reject trades whose direction opposes bias by more than this
+
+location:
+  zone_tolerance_pct: 0.1      # levels within 0.1% cluster into one zone
+  min_sources: 2
+  max_distance_pct: 0.15       # entry must be within this of a confluence zone
+
+trigger:
+  min_strength: 0.5
+
+strike:
+  max_spread_pct: 1.5          # (ask - bid) / mid
+  min_volume: 10000
+  min_oi: 50000
+  max_iv_jump_pct: 15          # vs the day's reference IV
+  hold_minutes: 45             # theta horizon for expected gain
+  min_gain_to_theta: 2.0
+  expiry_day_switch: "12:00"   # on expiry day prefer next expiry after this time (before: allowed but fast exit)
+
+setups:
+  enabled: [orb, level_bounce, vwap_reclaim, trend_pullback, oi_shift_reversal, failed_break]
+
+priors:
+  version: priors-v1
+  base: {orb: 0.50, level_bounce: 0.50, vwap_reclaim: 0.50, trend_pullback: 0.52, oi_shift_reversal: 0.48, failed_break: 0.52}
+  weights: {regime: 0.08, bias: 0.10, zone: 0.03, trigger: 0.08, strike: 0.02}
+  clip: [0.30, 0.80]
+  calibrated_after_trades: 100
+
+score_weights: {regime: 1.0, bias: 1.0, location: 1.0, trigger: 1.0, strike: 1.0}

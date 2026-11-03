@@ -1,0 +1,24 @@
+# Analysis-only rules simulated in parallel. Never block real paper trades.
+# Add new rules here; the simulator (Phase 8) picks them up by `type`.
+rules:
+  - id: weekly_profit_cap
+    type: weekly_pnl_cap
+    params: {cap: 3500}
+  - id: weekly_sl_pause
+    type: weekly_sl_count
+    params: {max_sl: 3}
+  - id: monthly_drawdown_cap
+    type: monthly_drawdown
+    params: {pct_from_peak: 30}
+  - id: half_sizing
+    type: size_multiplier
+    params: {multiplier: 0.5}
+  - id: index_switch_tag
+    type: index_switch_flag
+    params: {}
+  - id: trail_1min
+    type: trail_variant
+    params: {timeframe_min: 1, pivot_bars: 2, buffer_pct: 2}
+  - id: trail_5min
+    type: trail_variant
+    params: {timeframe_min: 5, pivot_bars: 2, buffer_pct: 2}

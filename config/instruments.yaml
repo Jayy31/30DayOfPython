@@ -1,0 +1,23 @@
+# Static instrument metadata. Lot sizes, strikes and expiries are loaded daily from the
+# broker (Kotak option chain: common_data.mktLot / expiryDt, neoSymbol tokens); the
+# fallback lot sizes are only used in mock / replay mode.
+NIFTY:
+  exchange: NSE
+  segment: NFO
+  strike_step: 50
+  fallback_lot_size: 65
+  kotak:
+    fo_segment: nse_fo
+    underlying: NIFTY           # matches pSymbolName in the scrip master
+    index_segment: nse_cm
+    index_token: "Nifty 50"     # documented: WsToken("nse_cm", "Nifty 50")
+SENSEX:
+  exchange: BSE
+  segment: BFO
+  strike_step: 100
+  fallback_lot_size: 20
+  kotak:
+    fo_segment: bse_fo          # VERIFY on first login (expiries/option_chain list bse_fo)
+    underlying: SENSEX          # VERIFY against pSymbolName in bse_fo scrip master
+    index_segment: bse_cm
+    index_token: "SENSEX"       # documented: WsToken("bse_cm", "SENSEX")

@@ -1,0 +1,6 @@
+[Unit]
+Description=papertrade health check
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /opt/papertrade/deploy/healthcheck.sh

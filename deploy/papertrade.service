@@ -1,0 +1,18 @@
+# /etc/systemd/system/papertrade.service - starts the stack on boot and keeps it up.
+[Unit]
+Description=papertrade engine (docker compose)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/papertrade
+EnvironmentFile=/opt/papertrade/deploy/compose.env
+ExecStart=/usr/bin/docker compose -f docker/compose.prod.yml up -d --build --remove-orphans
+ExecStop=/usr/bin/docker compose -f docker/compose.prod.yml down
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target
